@@ -24,7 +24,6 @@ def args_parser():
     parser.add_argument('--alpha', type=float, default=0.1)
     parser.add_argument('--beta', type=float, default=0.1)
     parser.add_argument('--lamda', type=float, default=0.12)
-    # parser.add_argument('--noise_ld', type=int, default=14, help='threshold of noisy client')
 
     #non-iid
     parser.add_argument('--iid', type=int, default=0)
