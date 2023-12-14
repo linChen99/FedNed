@@ -177,7 +177,6 @@ class Server(object):
                 list_key_good.append(key)
             else:
                 list_key_bad.append(key)
-        print('unceretainty:{}'.format(list_var))
 
         print('list_key_good:{}'.format(list_key_good))
         print('list_key_bad:{}'.format(list_key_bad))
