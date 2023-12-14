@@ -27,16 +27,15 @@ def args_parser():
 
     #non-iid
     parser.add_argument('--iid', type=int, default=0)
-    parser.add_argument('--non_iid_alpha', type=float, default=10)
+    parser.add_argument('--non_iid_alpha', type=float, default=0.7)
 
     #distill
     parser.add_argument('--temperature', type=float, default=2)
     parser.add_argument('--mini_batch_size_distillation', type=int, default=128)
-    # parser.add_argument('--mini_batch_size_teaching', type=int, default=20)
     parser.add_argument('--ld', type=float, default=0.5, help='threshold of distillation aggregate')
     parser.add_argument('--eval_step', default=78, type=int , help='number of eval steps to run')
 
     #other
-    parser.add_argument('--seed', type=int, default=1)
+    parser.add_argument('--seed', type=int, default=7)
     args = parser.parse_args()
     return args

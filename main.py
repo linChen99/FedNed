@@ -3,7 +3,6 @@ os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
 from datetime import datetime
 from server import Server
 from dataset.get_cifar10 import get_cifar10
-from dataset.get_cifar100 import get_cifar100
 from dataset.utils.dataset import Indices2Dataset
 from models.model_feature import ResNet_cifar_feature
 from dataset.utils.noisify import noisify_label
@@ -86,7 +85,6 @@ def main(args):
 
     server = Server(args=args,
                     train_data_list=train_data_list,
-                    global_teaching_dataset=data_local_training,
                     global_test_dataset=data_global_test,
                     global_distill_dataset=global_distill_dataset,
                     global_student=model,

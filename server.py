@@ -1,15 +1,12 @@
 import copy
-
 import torch.nn.functional as F
 from torch.utils.data.dataloader import DataLoader
 from torch import stack, no_grad
 from torch.optim import SGD, Adam, lr_scheduler
 from models.model_feature import ResNet_cifar_feature
 from client import Client
-from utils.tools import draw_plt
 from torch.nn.functional import softmax, log_softmax
 import torch
-import random
 import numpy as np
 import torch.nn as nn
 
@@ -19,7 +16,6 @@ class Server(object):
     def __init__(self,
                  args,
                  train_data_list,
-                 global_teaching_dataset,
                  global_test_dataset,
                  global_distill_dataset,
                  global_student,
@@ -39,7 +35,7 @@ class Server(object):
         self.train_data_list = train_data_list
         self.global_test_dataset = global_test_dataset
         self.global_distill_dataset = global_distill_dataset
-        self.global_teaching_dataset = global_teaching_dataset
+        # self.global_teaching_dataset = global_teaching_dataset
         self.global_student = copy.deepcopy(global_student)
         self.global_student.to(self.device)
         self.dict_global_params = self.global_student.state_dict()
@@ -98,13 +94,13 @@ class Server(object):
         for select_id in self.selected_client_indexes:
             self.clients[select_id].download_params(copy.deepcopy(self.dict_global_params))
 
-    def aggregate_parameters(self,list_noisy_ratio):
+    def aggregate_parameters(self):
         for name_param in self.dict_global_params:
             list_values_param = []
-            for dict_local_params, num_local_data in zip(self.list_dicts_good_local_params, list_noisy_ratio):
-                list_values_param.append(dict_local_params[name_param] * (1 - num_local_data))
+            for dict_local_params, num_local_data in zip(self.list_dicts_good_local_params, self.list_nums_good_local_data):
+                list_values_param.append(dict_local_params[name_param] * num_local_data)
 
-            value_global_param = sum(list_values_param) / (len(list_noisy_ratio) - sum(list_noisy_ratio))
+            value_global_param = sum(list_values_param) / sum( self.list_nums_good_local_data)
             self.dict_global_params[name_param] = value_global_param
         self.global_teacher_good.load_state_dict(self.dict_global_params)
 
@@ -130,11 +126,7 @@ class Server(object):
                 local_softmax = softmax(local_logits, dim=1)
                 list_logits.append(copy.deepcopy(local_logits))
                 list_softmax.append(local_softmax)
-        if (len(list_logits) > 0):
-            total_softmax = sum([i for i in list_softmax]) / len(list_softmax)
-        else:
-            total_softmax = torch.zeros((128, 10)).to(self.device)
-        return total_softmax
+        return list_softmax
 
     def compute_uncertainty(self):
         client_indexes = self.selected_client_indexes
@@ -185,14 +177,16 @@ class Server(object):
                 list_key_good.append(key)
             else:
                 list_key_bad.append(key)
+        print('unceretainty:{}'.format(list_var))
 
         print('list_key_good:{}'.format(list_key_good))
         print('list_key_bad:{}'.format(list_key_bad))
         return list_key_good,list_key_bad
 
 
-    def aggregate_distillation(self, list_noisy_ratio):
-        self.aggregate_parameters(list_noisy_ratio)
+    def aggregate_distillation(self):
+        self.aggregate_parameters()
+        # self.aggregate_wram_parameters()
         for step in range(100):
             total_indices_unlabeled = [i for i in range(len(self.global_distill_dataset))]
             batch_indices_unlabeled = self.random_state.choice(total_indices_unlabeled,
@@ -208,10 +202,20 @@ class Server(object):
             total_logits_bad_teacher = self.get_bad_logit(images_unlabeled, self.list_dicts_bad_local_params)
             _, _, avg_logits_good_teacher = self.global_teacher_good(images_unlabeled)
             y_good = softmax(avg_logits_good_teacher / self.temperature, dim=1)
-            y_bad = (total_logits_bad_teacher / self.temperature).to(self.device)
-            bad_teacher_loss = F.kl_div(y_good.log(), y_bad, reduction='batchmean')
+            loss = 0
+            if len(total_logits_bad_teacher) > 0:
+                for bad_logit in total_logits_bad_teacher:
+                    y_bad = (bad_logit / self.temperature).to(self.device)
+                    bad_teacher_loss = F.kl_div(y_good.log(), y_bad, reduction='batchmean')
+                    loss = loss + bad_teacher_loss
+            else:
+                y_bad = torch.zeros((128, 10)).to(self.device)
+                loss = F.kl_div(y_good.log(), y_bad, reduction='batchmean')
+
+            loss = loss / len(total_logits_bad_teacher)
+
             self.optimizer.zero_grad()
-            bad_teacher_loss.backward()
+            loss.backward()
             self.optimizer.step()
         self.dict_global_params = self.global_teacher_good.state_dict()
 
@@ -259,11 +263,9 @@ class Server(object):
                     if id not in bad_log:
                         bad_log.append(id)
 
-                list_noisy_ratio = []
                 for select_id in self.selected_good_client_indexes:
                     self.list_dicts_good_local_params.append(self.clients[select_id].upload_params())
                     self.list_nums_good_local_data.append(self.clients[select_id].train_samples)
-                    list_noisy_ratio.append(self.list_noisy_ratio[select_id])
 
                 for select_id in self.selected_bad_client_indexes:
                     self.list_dicts_bad_local_params.append(self.clients[select_id].upload_params())
@@ -278,7 +280,7 @@ class Server(object):
                 print('good_client: {}'.format(self.selected_good_client_indexes))
                 print('bad_client: {}'.format(self.selected_bad_client_indexes))
 
-                self.aggregate_distillation(list_noisy_ratio)
+                self.aggregate_distillation()
                 self.list_dicts_local_params = []
                 self.list_nums_local_data = []
                 self.list_dicts_good_local_params = []
@@ -289,8 +291,6 @@ class Server(object):
                 acc, loss= self.evaluate()
                 print('Round: {}'.format(i))
                 print('Acc:{:.5f}'.format(acc))
-
-        draw_plt(self.test_acc, self.test_loss)
 
     def evaluate(self):
         self.global_teacher_good.eval()

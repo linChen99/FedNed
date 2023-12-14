@@ -2,12 +2,8 @@ import torch.nn as nn
 from torch import optim
 import torch
 import copy
-from dataset.get_cifar_bad import CIFAR10SSL,TransformFixMatch,get_cifar10_bad
-
 from torch.utils.data import DataLoader, RandomSampler, SequentialSampler
-from queue import Queue
-from collections import Counter
-import torch.nn.functional as F
+
 
 
 class Client(object):
