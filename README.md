@@ -50,15 +50,13 @@ The following arguments to the `./options.py` file control the important paramet
 
 ### Usage
 
-Here is an example to run FEDIC on CIFAR-10 with imb_factor=0.01:
+Here is an example to run FedNed on CIFAR-10:
 
 ```python
 python main.py --num_classes=10 \ 
 --num_clients=20 \
 --join_ratio=0.5 \
 --global_rounds=100 \
---num_data_train=49000 \
---local_steps=10 \
 --batch_size=32 \
 --mini_batch_size_distillations=128 \
 --temperature=2 \
