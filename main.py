@@ -56,7 +56,6 @@ def main(args):
     beta_samples = np.random.beta(alpha, beta, size=args.num_clients)
     noise_rate_list = np.sort(beta_samples)
     args.noise_rate_list = noise_rate_list
-    print(args.noise_rate_list)
 
     for i in range(args.num_clients):
         current_client_index_list = list_client2indices[i]
@@ -75,7 +74,7 @@ def main(args):
         train_data_list.append(data_client)
         label_list.append(train_label_list)
 
-    # 打印每个客户端的真实数据分布
+
     for client, indices in enumerate(label_list):
         nums_data = [0 for _ in range(10)]
         for idx in indices:
