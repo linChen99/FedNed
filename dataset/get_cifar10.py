@@ -44,7 +44,7 @@ def get_cifar10(args):
         list_label2indices = classify_label(data_local_training, args.num_classes)
         list_client2indices = clients_non_iid_indices(list_label2indices, args.num_classes, args.num_clients, args.non_iid_alpha, args.seed)
 
-    show_clients_data_distribution(data_local_training, list_client2indices, args.num_classes)
+    # show_clients_data_distribution(data_local_training, list_client2indices, args.num_classes)
 
 
     return data_local_training, data_global_test, list_client2indices,data_global_distill
